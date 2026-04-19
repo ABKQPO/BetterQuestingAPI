@@ -9,7 +9,7 @@ tasks.withType<JavaCompile>().configureEach {
 val bqApiJar by tasks.registering(org.gradle.jvm.tasks.Jar::class) {
     group = "build"
     description = "Builds an API-only jar without @Mod bootstrap and mixin implementation classes."
-    archiveClassifier.set("api")
+    archiveClassifier.set("runtime-api")
 
     from(sourceSets.main.get().output)
 
@@ -26,10 +26,4 @@ tasks.named("build") {
 
 artifacts {
     add("archives", bqApiJar)
-}
-
-extensions.configure<org.gradle.api.publish.PublishingExtension>("publishing") {
-    publications.withType<org.gradle.api.publish.maven.MavenPublication>().configureEach {
-        artifact(bqApiJar)
-    }
 }
