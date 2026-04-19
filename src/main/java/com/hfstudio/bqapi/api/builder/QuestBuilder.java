@@ -37,6 +37,24 @@ public final class QuestBuilder {
         return new QuestBuilder(id);
     }
 
+    /**
+     * Creates a copy builder from an existing {@link QuestDefinition}, preserving all
+     * fields including the UUID. Typically used inside a
+     * {@link com.hfstudio.bqapi.BQApi#patchQuest} lambda to produce a modified copy.
+     */
+    static QuestBuilder from(QuestDefinition definition) {
+        QuestBuilder b = new QuestBuilder(definition.getId());
+        b.uuid = definition.getUuid();
+        b.tasks.addAll(definition.getTasks());
+        b.prerequisites.addAll(definition.getPrerequisites());
+        b.requirementTypes.putAll(definition.getRequirementTypes());
+        b.rewards.addAll(definition.getRewards());
+        b.iconNbt = definition.getIconNbt();
+        b.templateNbt = definition.getTemplateNbt();
+        b.main = definition.isMain();
+        return b;
+    }
+
     public QuestBuilder task(TaskDefinition task) {
         this.tasks.add(Objects.requireNonNull(task, "task"));
         return this;

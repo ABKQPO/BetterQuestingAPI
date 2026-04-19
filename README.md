@@ -144,7 +144,80 @@ if (server != null) {
 }
 ```
 
-## Depending on the API Jar in Another Mod
+### 4. Query Existing Chapters and Quests
+
+At any point after registration you can look up definitions by ID or UUID:
+
+```java
+import java.util.Optional;
+import com.hfstudio.bqapi.BQApi;
+import com.hfstudio.bqapi.api.definition.ChapterDefinition;
+import com.hfstudio.bqapi.api.definition.QuestDefinition;
+
+// Check existence
+boolean exists = BQApi.hasQuest("mymod.chapter1.intro");
+
+// Retrieve by string ID
+Optional<QuestDefinition> quest = BQApi.getQuest("mymod.chapter1.intro");
+quest.ifPresent(q -> System.out.println("UUID: " + q.getUuid()));
+
+// Retrieve by UUID
+Optional<ChapterDefinition> chapter = BQApi.getChapter("mymod.chapter1");
+```
+
+### 5. Runtime Quest Patching
+
+Register a patch once at startup (e.g. `FMLPostInitializationEvent`). The patch is
+applied on every `reinject` call without modifying the original registered definition:
+
+```java
+import com.hfstudio.bqapi.BQApi;
+import com.hfstudio.bqapi.api.builder.Quests;
+import com.hfstudio.bqapi.api.builder.TaskBuilders;
+
+// Append an extra retrieval task to a quest registered by another mod
+BQApi.patchQuest("othermod.some_quest", def ->
+	Quests.copyOf(def)
+		.task(TaskBuilders.retrieval()
+			.item("minecraft:diamond", 1)
+			.build())
+		.build());
+```
+
+Multiple patches on the same quest are applied in registration order.
+
+### 6. Dynamic Reload with `@QuestReloader`
+
+Use `@QuestReloader` to re-register chapters or definitions on every reload
+(including `/bq_admin default load`). Register the class once at startup:
+
+```java
+// In your @Mod event handler:
+BQApi.registerReloader(MyQuestSetup.class);
+```
+
+```java
+import com.hfstudio.bqapi.api.QuestReloader;
+import com.hfstudio.bqapi.BQApi;
+import cpw.mods.fml.common.Loader;
+
+@QuestReloader
+public class MyQuestSetup {
+
+	/**
+	 * Called automatically before every reinject cycle.
+	 * Re-register chapters that depend on runtime state.
+	 */
+	public static void reloadQuest() {
+		if (Loader.isModLoaded("somemod")) {
+			BQApi.register(buildCompatChapter());
+		}
+	}
+}
+```
+
+> **Note**: do **not** call `BQApi.patchQuest()` inside `reloadQuest()`. Patches are
+> persistent and accumulate across calls; register them once at startup instead.
 
 Use the classified `api` artifact as your compile/jar-in-jar dependency.
 

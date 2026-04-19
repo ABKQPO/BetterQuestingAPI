@@ -31,6 +31,9 @@ public final class BQRuntimeApplier {
         for (ChapterDefinition chapter : chapters) {
             for (QuestPlacementDefinition placement : chapter.getPlacements()) {
                 QuestDefinition quest = placement.getQuest();
+                // Apply any runtime patches registered by callers; patches do not
+                // modify the original registered data and are only effective in this apply run.
+                quest = registry.applyPatchesTo(quest);
                 quests.put(quest.getUuid(), quest);
             }
         }

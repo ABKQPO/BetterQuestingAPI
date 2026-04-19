@@ -144,7 +144,79 @@ if (server != null) {
 }
 ```
 
-## 其他模组如何使用 API Jar
+### 4. 查询已注册的章节与任务
+
+注册完成后，可随时按 ID 或 UUID 查询定义：
+
+```java
+import java.util.Optional;
+import com.hfstudio.bqapi.BQApi;
+import com.hfstudio.bqapi.api.definition.ChapterDefinition;
+import com.hfstudio.bqapi.api.definition.QuestDefinition;
+
+// 判断是否存在
+boolean exists = BQApi.hasQuest("mymod.chapter1.intro");
+
+// 按字符串 ID 获取
+Optional<QuestDefinition> quest = BQApi.getQuest("mymod.chapter1.intro");
+quest.ifPresent(q -> System.out.println("UUID: " + q.getUuid()));
+
+// 按 UUID 获取章节
+Optional<ChapterDefinition> chapter = BQApi.getChapter("mymod.chapter1");
+```
+
+### 5. 运行时任务 Patch
+
+在启动阶段（如 `FMLPostInitializationEvent`）注册一次 patch，每次 `reinject` 时自动应用，不修改原始注册数据：
+
+```java
+import com.hfstudio.bqapi.BQApi;
+import com.hfstudio.bqapi.api.builder.Quests;
+import com.hfstudio.bqapi.api.builder.TaskBuilders;
+
+// 在其他模组的任务上追加一个物品收集任务
+BQApi.patchQuest("othermod.some_quest", def ->
+    Quests.copyOf(def)
+        .task(TaskBuilders.retrieval()
+            .item("minecraft:diamond", 1)
+            .build())
+        .build());
+```
+
+同一任务上的多个 patch 按注册顺序依次应用。
+
+### 6. 动态重载：`@QuestReloader`
+
+使用 `@QuestReloader` 标注类，在每次重载（含 `/bq_admin default load`）时重新注册章节或定义。
+需在启动时注册一次该类：
+
+```java
+// 在你的 @Mod 事件处理器中：
+BQApi.registerReloader(MyQuestSetup.class);
+```
+
+```java
+import com.hfstudio.bqapi.api.QuestReloader;
+import com.hfstudio.bqapi.BQApi;
+import cpw.mods.fml.common.Loader;
+
+@QuestReloader
+public class MyQuestSetup {
+
+    /**
+     * 在每次 reinject 周期开始前自动调用。
+     * 可在此根据运行时状态重新注册动态章节。
+     */
+    public static void reloadQuest() {
+        if (Loader.isModLoaded("somemod")) {
+            BQApi.register(buildCompatChapter());
+        }
+    }
+}
+```
+
+> **注意**：不要在 `reloadQuest()` 内调用 `BQApi.patchQuest()`。patch 是持久累积的，
+> 在此处重复注册会导致每次重载都叠加一份。patch 应在启动时注册一次。
 
 将分类器为 `api` 的产物作为你的编译/jar-in-jar 依赖。
 
