@@ -9,7 +9,7 @@ tasks.withType<JavaCompile>().configureEach {
 val bqApiJar by tasks.registering(org.gradle.jvm.tasks.Jar::class) {
     group = "build"
     description = "Builds an API-only jar without @Mod bootstrap and mixin implementation classes."
-    archiveClassifier.set("runtime-api")
+    archiveClassifier.set("api")
 
     from(sourceSets.main.get().output)
 
