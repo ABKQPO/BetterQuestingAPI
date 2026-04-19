@@ -124,6 +124,7 @@ public final class BQImportedQuestLoader {
         List<QuestPlacementDefinition> placements = new ArrayList<>();
         NBTTagList questPlacements = lineNbt.getTagList("quests", 10);
         if (questPlacements.tagCount() > 0) {
+            // Format A: placements embedded in QuestLine.json as quests:9 array
             for (int i = 0; i < questPlacements.tagCount(); i++) {
                 NBTTagCompound placementNbt = questPlacements.getCompoundTagAt(i);
                 UUID questUuid = NBTConverter.UuidValueType.QUEST.readId((NBTTagCompound) placementNbt.copy());
@@ -139,19 +140,25 @@ public final class BQImportedQuestLoader {
                 placements.add(quest.at(placementNbt.getInteger("x"), placementNbt.getInteger("y"), sizeX, sizeY));
             }
         } else {
-            int col = 0;
-            int row = 0;
-            final int questsPerRow = 10;
-            final int stepX = 100;
-            final int stepY = 70;
-            final int size = 24;
-            for (QuestDefinition quest : questsByUuid.values()) {
-                placements.add(quest.at(col * stepX, row * stepY, size, size));
-                col++;
-                if (col >= questsPerRow) {
-                    col = 0;
-                    row++;
+            // Format B: BetterQuesting native export format — individual placement
+            // JSON files stored alongside QuestLine.json inside QuestLines/<dir>/.
+            // Each file contains questIDHigh/Low + x/y/sizeX/sizeY (QuestLineEntry).
+            for (String placementFile : resources.listFiles("QuestLines/" + lineDirectory, ".json")) {
+                if (placementFile.equals("QuestLine.json")) {
+                    continue;
                 }
+                NBTTagCompound placementNbt = resources.readNbt("QuestLines/" + lineDirectory + "/" + placementFile);
+                UUID questUuid = NBTConverter.UuidValueType.QUEST.readId((NBTTagCompound) placementNbt.copy());
+                QuestDefinition quest = questsByUuid.get(questUuid);
+                if (quest == null) {
+                    // Placement references a quest not in Quests/<dir>/ — skip silently.
+                    continue;
+                }
+                int sizeX = placementNbt.hasKey("size", 99) ? placementNbt.getInteger("size")
+                    : placementNbt.getInteger("sizeX");
+                int sizeY = placementNbt.hasKey("size", 99) ? placementNbt.getInteger("size")
+                    : placementNbt.getInteger("sizeY");
+                placements.add(quest.at(placementNbt.getInteger("x"), placementNbt.getInteger("y"), sizeX, sizeY));
             }
         }
 
