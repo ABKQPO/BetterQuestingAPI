@@ -123,19 +123,36 @@ public final class BQImportedQuestLoader {
 
         List<QuestPlacementDefinition> placements = new ArrayList<>();
         NBTTagList questPlacements = lineNbt.getTagList("quests", 10);
-        for (int i = 0; i < questPlacements.tagCount(); i++) {
-            NBTTagCompound placementNbt = questPlacements.getCompoundTagAt(i);
-            UUID questUuid = NBTConverter.UuidValueType.QUEST.readId((NBTTagCompound) placementNbt.copy());
-            QuestDefinition quest = questsByUuid.get(questUuid);
-            if (quest == null) {
-                throw new IllegalArgumentException(
-                    "Missing quest file for " + questUuid + " in line directory " + lineDirectory);
+        if (questPlacements.tagCount() > 0) {
+            for (int i = 0; i < questPlacements.tagCount(); i++) {
+                NBTTagCompound placementNbt = questPlacements.getCompoundTagAt(i);
+                UUID questUuid = NBTConverter.UuidValueType.QUEST.readId((NBTTagCompound) placementNbt.copy());
+                QuestDefinition quest = questsByUuid.get(questUuid);
+                if (quest == null) {
+                    throw new IllegalArgumentException(
+                        "Missing quest file for " + questUuid + " in line directory " + lineDirectory);
+                }
+                int sizeX = placementNbt.hasKey("size", 99) ? placementNbt.getInteger("size")
+                    : placementNbt.getInteger("sizeX");
+                int sizeY = placementNbt.hasKey("size", 99) ? placementNbt.getInteger("size")
+                    : placementNbt.getInteger("sizeY");
+                placements.add(quest.at(placementNbt.getInteger("x"), placementNbt.getInteger("y"), sizeX, sizeY));
             }
-            int sizeX = placementNbt.hasKey("size", 99) ? placementNbt.getInteger("size")
-                : placementNbt.getInteger("sizeX");
-            int sizeY = placementNbt.hasKey("size", 99) ? placementNbt.getInteger("size")
-                : placementNbt.getInteger("sizeY");
-            placements.add(quest.at(placementNbt.getInteger("x"), placementNbt.getInteger("y"), sizeX, sizeY));
+        } else {
+            int col = 0;
+            int row = 0;
+            final int questsPerRow = 10;
+            final int stepX = 100;
+            final int stepY = 70;
+            final int size = 24;
+            for (QuestDefinition quest : questsByUuid.values()) {
+                placements.add(quest.at(col * stepX, row * stepY, size, size));
+                col++;
+                if (col >= questsPerRow) {
+                    col = 0;
+                    row++;
+                }
+            }
         }
 
         return new ImportedLineData(
