@@ -186,29 +186,22 @@ BQApi.patchQuest("othermod.some_quest", def ->
 
 Multiple patches on the same quest are applied in registration order.
 
-### 6. Dynamic Reload with `@QuestReloader`
+### 6. Dynamic Reload via Java SPI (Recommended)
 
-Use `@QuestReloader` to re-register chapters or definitions on every reload
-(including `/bq_admin default load`). Register the class once at startup:
+BetterQuestingAPI supports JDK SPI (`ServiceLoader`) for reload callbacks.
+This avoids requiring every consumer to bind a dedicated bootstrap class.
 
-```java
-// In your @Mod event handler:
-BQApi.registerReloader(MyQuestSetup.class);
-```
+#### 6.1 Create a service implementation
 
 ```java
-import com.hfstudio.bqapi.api.QuestReloader;
 import com.hfstudio.bqapi.BQApi;
+import com.hfstudio.bqapi.api.QuestReloadService;
 import cpw.mods.fml.common.Loader;
 
-@QuestReloader
-public class MyQuestSetup {
+public final class MyQuestReloadService implements QuestReloadService {
 
-	/**
-	 * Called automatically before every reinject cycle.
-	 * Re-register chapters that depend on runtime state.
-	 */
-	public static void reloadQuest() {
+	@Override
+	public void reloadQuest() {
 		if (Loader.isModLoaded("somemod")) {
 			BQApi.register(buildCompatChapter());
 		}
@@ -216,7 +209,31 @@ public class MyQuestSetup {
 }
 ```
 
-> **Note**: do **not** call `BQApi.patchQuest()` inside `reloadQuest()`. Patches are
+#### 6.2 Add the SPI descriptor file
+
+Create file:
+
+- `src/main/resources/META-INF/services/com.hfstudio.bqapi.api.QuestReloadService`
+
+File content (one implementation class per line):
+
+```text
+your.mod.package.MyQuestReloadService
+```
+
+`BQApi.reinject(...)` will auto-discover and invoke these services before applying definitions.
+
+#### 6.3 Legacy compatibility: `@QuestReloader`
+
+The annotation-based flow remains supported:
+
+```java
+BQApi.registerReloader(MyQuestSetup.class);
+```
+
+Use it only when SPI is not convenient.
+
+> **Note**: do **not** call `BQApi.patchQuest()` inside reload callbacks. Patches are
 > persistent and accumulate across calls; register them once at startup instead.
 
 Use the classified `api` artifact as your compile/jar-in-jar dependency.

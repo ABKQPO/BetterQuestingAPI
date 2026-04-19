@@ -9,6 +9,10 @@ import java.lang.annotation.Target;
  * Marks a class as a BetterQuestingAPI reload participant.
  *
  * <p>
+ * This is a compatibility mechanism. The recommended integration path is
+ * Java SPI via {@link QuestReloadService}.
+ *
+ * <p>
  * Classes annotated with {@code @QuestReloader} must declare a
  * {@code public static void reloadQuest()} method. BetterQuestingAPI will
  * invoke that method on every reinject cycle (including after

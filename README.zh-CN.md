@@ -185,29 +185,22 @@ BQApi.patchQuest("othermod.some_quest", def ->
 
 同一任务上的多个 patch 按注册顺序依次应用。
 
-### 6. 动态重载：`@QuestReloader`
+### 6. 动态重载：Java SPI（推荐）
 
-使用 `@QuestReloader` 标注类，在每次重载（含 `/bq_admin default load`）时重新注册章节或定义。
-需在启动时注册一次该类：
+BetterQuestingAPI 支持 JDK SPI（`ServiceLoader`）作为重载回调机制。
+这样就不需要每个使用方都额外绑定一个专门的启动类。
 
-```java
-// 在你的 @Mod 事件处理器中：
-BQApi.registerReloader(MyQuestSetup.class);
-```
+#### 6.1 创建服务实现类
 
 ```java
-import com.hfstudio.bqapi.api.QuestReloader;
 import com.hfstudio.bqapi.BQApi;
+import com.hfstudio.bqapi.api.QuestReloadService;
 import cpw.mods.fml.common.Loader;
 
-@QuestReloader
-public class MyQuestSetup {
+public final class MyQuestReloadService implements QuestReloadService {
 
-    /**
-     * 在每次 reinject 周期开始前自动调用。
-     * 可在此根据运行时状态重新注册动态章节。
-     */
-    public static void reloadQuest() {
+    @Override
+    public void reloadQuest() {
         if (Loader.isModLoaded("somemod")) {
             BQApi.register(buildCompatChapter());
         }
@@ -215,7 +208,31 @@ public class MyQuestSetup {
 }
 ```
 
-> **注意**：不要在 `reloadQuest()` 内调用 `BQApi.patchQuest()`。patch 是持久累积的，
+#### 6.2 添加 SPI 描述文件
+
+创建文件：
+
+- `src/main/resources/META-INF/services/com.hfstudio.bqapi.api.QuestReloadService`
+
+文件内容（每行一个实现类全限定名）：
+
+```text
+your.mod.package.MyQuestReloadService
+```
+
+`BQApi.reinject(...)` 会在应用定义前自动发现并调用这些 SPI 服务。
+
+#### 6.3 兼容方式：`@QuestReloader`
+
+注解注册方式仍然可用：
+
+```java
+BQApi.registerReloader(MyQuestSetup.class);
+```
+
+仅在 SPI 方式不方便时使用。
+
+> **注意**：不要在重载回调中调用 `BQApi.patchQuest()`。patch 是持久累积的，
 > 在此处重复注册会导致每次重载都叠加一份。patch 应在启动时注册一次。
 
 将分类器为 `api` 的产物作为你的编译/jar-in-jar 依赖。

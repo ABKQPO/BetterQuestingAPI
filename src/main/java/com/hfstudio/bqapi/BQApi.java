@@ -7,6 +7,7 @@ import java.util.function.UnaryOperator;
 
 import net.minecraft.server.MinecraftServer;
 
+import com.hfstudio.bqapi.api.QuestReloadService;
 import com.hfstudio.bqapi.api.QuestReloader;
 import com.hfstudio.bqapi.api.definition.ChapterDefinition;
 import com.hfstudio.bqapi.api.definition.QuestDefinition;
@@ -22,6 +23,11 @@ public final class BQApi {
 
     private static final BQDefinitionRegistry REGISTRY = new BQDefinitionRegistry();
     private static final BQReloaderRegistry RELOADER_REGISTRY = new BQReloaderRegistry();
+
+    static {
+        // Auto-discover SPI reload participants from classpath.
+        RELOADER_REGISTRY.registerFromServiceLoader(BQApi.class.getClassLoader());
+    }
 
     private BQApi() {}
 
@@ -176,6 +182,17 @@ public final class BQApi {
      */
     public static void registerReloader(Class<?> clazz) {
         RELOADER_REGISTRY.register(clazz);
+    }
+
+    /**
+     * Registers a SPI reloader instance manually.
+     *
+     * <p>
+     * Most mods should prefer Java SPI auto-discovery via
+     * {@code META-INF/services/com.hfstudio.bqapi.api.QuestReloadService}.
+     */
+    public static void registerReloaderService(QuestReloadService service) {
+        RELOADER_REGISTRY.registerService(service);
     }
 
     // ---- Apply ----
