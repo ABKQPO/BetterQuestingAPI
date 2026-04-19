@@ -103,6 +103,34 @@ public final class ExampleQuestRegistration {
 - 在你的模组初始化阶段完成章节/任务注册。
 - 如果在服务器启动后才动态注册，需手动调用 `BQApi.reinject(server)`。
 
+### 1.5 章节排序
+
+默认情况下新添加的章节会被放在列表最后。如果你需要在特定位置插入章节，
+可以使用 `orderAfter()` 指定这个章节应该出现在哪个现有章节之后：
+
+```java
+import java.util.UUID;
+import com.hfstudio.bqapi.BQApi;
+import com.hfstudio.bqapi.api.builder.Chapters;
+
+// 通过 UUID 指定前置章节
+ChapterDefinition myChapter = Chapters.chapter("my_new_chapter")
+    .orderAfter(UUID.fromString("...existing chapter uuid..."))
+    .build();
+
+BQApi.register(myChapter);
+```
+
+也可以用章节 ID（字符串形式）指定，API 会自动转换为 UUID：
+
+```java
+ChapterDefinition myChapter = Chapters.chapter("my_new_chapter")
+    .orderAfter("existing_chapter_id")  // API 会自动转换为 UUID
+    .build();
+```
+
+更详细的章节排序说明与任务注册问题诊断，见 [CHAPTER_ORDERING_GUIDE.md](CHAPTER_ORDERING_GUIDE.md)。
+
 ### 2. 从资源目录导入任务线
 
 可以直接导入你模组资源目录中的任务定义。
