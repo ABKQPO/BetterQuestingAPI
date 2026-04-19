@@ -27,3 +27,9 @@ tasks.named("build") {
 artifacts {
     add("archives", bqApiJar)
 }
+
+extensions.configure<org.gradle.api.publish.PublishingExtension>("publishing") {
+    publications.withType<org.gradle.api.publish.maven.MavenPublication>().configureEach {
+        artifact(bqApiJar)
+    }
+}

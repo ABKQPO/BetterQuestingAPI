@@ -1,4 +1,5 @@
 before_install:
+  - chmod +x gradlew
   - ./gradlew setupCIWorkspace
 install:
-  - ./gradlew clean build
+  - ./gradlew clean publishToMavenLocal
