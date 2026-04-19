@@ -10,8 +10,10 @@ import net.minecraft.nbt.NBTTagCompound;
 
 import com.hfstudio.bqapi.api.definition.ChapterDefinition;
 import com.hfstudio.bqapi.api.definition.QuestPlacementDefinition;
+import com.hfstudio.bqapi.runtime.BQStableIdFactory;
 
 import betterquesting.api.utils.BigItemStack;
+import betterquesting.api.utils.UuidConverter;
 
 public final class ChapterBuilder {
 
@@ -33,6 +35,30 @@ public final class ChapterBuilder {
     public ChapterBuilder orderAfterEncoded(String orderAfterEncoded) {
         this.orderAfterEncoded = orderAfterEncoded;
         return this;
+    }
+
+    /**
+     * Orders this chapter to appear immediately after the chapter with the given UUID.
+     * This is a convenience wrapper around {@link #orderAfterEncoded(String)}.
+     *
+     * @param afterUuid the UUID of the chapter to appear after, or {@code null} to place at the start
+     * @return this builder
+     */
+    public ChapterBuilder orderAfter(UUID afterUuid) {
+        this.orderAfterEncoded = afterUuid == null ? null : UuidConverter.encodeUuid(afterUuid);
+        return this;
+    }
+
+    /**
+     * Orders this chapter to appear immediately after the chapter with the given ID.
+     * The ID is converted to a UUID via {@link BQStableIdFactory#chapter(String)}.
+     * This is a convenience wrapper around {@link #orderAfter(UUID)}.
+     *
+     * @param afterId the ID of the chapter to appear after, or {@code null} to place at the start
+     * @return this builder
+     */
+    public ChapterBuilder orderAfter(String afterId) {
+        return orderAfter(afterId == null ? null : BQStableIdFactory.chapter(afterId));
     }
 
     public ChapterBuilder uuid(UUID uuid) {

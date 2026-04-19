@@ -103,6 +103,35 @@ Recommended lifecycle usage:
 - Register chapters/quests during your mod init phase.
 - If your definitions are added after server start, call `BQApi.reinject(server)` manually.
 
+### 1.5 Chapter Ordering
+
+By default, new chapters are placed at the end. To insert a chapter at a specific position,
+use `orderAfter()` to specify which existing chapter it should appear after:
+
+```java
+import java.util.UUID;
+import com.hfstudio.bqapi.BQApi;
+import com.hfstudio.bqapi.api.builder.Chapters;
+
+// Order after an existing chapter using its UUID
+ChapterDefinition myChapter = Chapters.chapter("my_new_chapter")
+	.orderAfter(UUID.fromString("...existing chapter uuid..."))
+	.build();
+
+BQApi.register(myChapter);
+```
+
+You can also order by chapter ID:
+
+```java
+ChapterDefinition myChapter = Chapters.chapter("my_new_chapter")
+	.orderAfter("existing_chapter_id")  // The API converts it to UUID automatically
+	.build();
+```
+
+For a detailed guide on chapter ordering and troubleshooting quest registration,
+see [CHAPTER_ORDERING_GUIDE.md](CHAPTER_ORDERING_GUIDE.md).
+
 ### 2. Import Quest Resources
 
 You can import chapters from resources under your own assets path.

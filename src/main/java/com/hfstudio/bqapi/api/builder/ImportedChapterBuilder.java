@@ -9,9 +9,11 @@ import net.minecraft.nbt.NBTTagCompound;
 import com.hfstudio.bqapi.api.definition.ChapterDefinition;
 import com.hfstudio.bqapi.api.importer.ImportedQuestFolder;
 import com.hfstudio.bqapi.api.importer.ImportedQuestFolders;
+import com.hfstudio.bqapi.runtime.BQStableIdFactory;
 import com.hfstudio.bqapi.runtime.importer.BQImportedQuestLoader;
 
 import betterquesting.api.utils.BigItemStack;
+import betterquesting.api.utils.UuidConverter;
 
 public final class ImportedChapterBuilder {
 
@@ -56,6 +58,30 @@ public final class ImportedChapterBuilder {
     public ImportedChapterBuilder orderAfterEncoded(String orderAfterEncoded) {
         this.orderAfterEncoded = orderAfterEncoded;
         return this;
+    }
+
+    /**
+     * Orders this chapter to appear immediately after the chapter with the given UUID.
+     * This is a convenience wrapper around {@link #orderAfterEncoded(String)}.
+     *
+     * @param afterUuid the UUID of the chapter to appear after, or {@code null} to place at the start
+     * @return this builder
+     */
+    public ImportedChapterBuilder orderAfter(UUID afterUuid) {
+        this.orderAfterEncoded = afterUuid == null ? null : UuidConverter.encodeUuid(afterUuid);
+        return this;
+    }
+
+    /**
+     * Orders this chapter to appear immediately after the chapter with the given ID.
+     * The ID is converted to a UUID via {@link BQStableIdFactory#chapter(String)}.
+     * This is a convenience wrapper around {@link #orderAfter(UUID)}.
+     *
+     * @param afterId the ID of the chapter to appear after, or {@code null} to place at the start
+     * @return this builder
+     */
+    public ImportedChapterBuilder orderAfter(String afterId) {
+        return orderAfter(afterId == null ? null : BQStableIdFactory.chapter(afterId));
     }
 
     public ImportedChapterBuilder icon(ItemStack icon) {
