@@ -28,15 +28,15 @@ public final class ChapterApplier {
         } else {
             chapter.setProperty(NativeProps.NAME, definition.getId());
             chapter.setProperty(NativeProps.DESC, "");
-        }
-        if (definition.getIconNbt() != null) {
-            BigItemStack icon = JsonHelper.JsonToItemStack(
-                (NBTTagCompound) definition.getIconNbt()
-                    .copy());
-            if (icon == null) {
-                throw new IllegalArgumentException("Unable to load chapter icon from NBT");
+            if (definition.getIconNbt() != null) {
+                BigItemStack icon = JsonHelper.JsonToItemStack(
+                    (NBTTagCompound) definition.getIconNbt()
+                        .copy());
+                if (icon == null) {
+                    throw new IllegalArgumentException("Unable to load chapter icon from NBT");
+                }
+                chapter.setProperty(NativeProps.ICON, icon);
             }
-            chapter.setProperty(NativeProps.ICON, icon);
         }
         chapter.clear();
 

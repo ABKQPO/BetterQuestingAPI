@@ -26,7 +26,7 @@ public final class QuestApplier {
         this.rewardApplier = new RewardApplier();
     }
 
-    public void apply(QuestDefinition definition) {
+    public void apply(QuestDefinition definition, boolean patched) {
         IQuest quest = QuestDatabase.INSTANCE.get(definition.getUuid());
         if (quest == null) {
             quest = QuestDatabase.INSTANCE.createNew(definition.getUuid());
@@ -36,6 +36,15 @@ public final class QuestApplier {
         for (DBEntry<ITask> entry : quest.getTasks()
             .getEntries()) {
             oldTasks.put(entry.getID(), entry.getValue());
+        }
+
+        if (definition.getTemplateNbt() != null && !patched) {
+            quest.readFromNBT(definition.getTemplateNbt());
+            for (DBEntry<ITask> entry : quest.getTasks()
+                .getEntries()) {
+                TaskProgressMigrator.copyCompatibleProgress(oldTasks.get(entry.getID()), entry.getValue());
+            }
+            return;
         }
 
         if (definition.getTemplateNbt() != null) {

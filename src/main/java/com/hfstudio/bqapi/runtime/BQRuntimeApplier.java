@@ -27,19 +27,22 @@ public final class BQRuntimeApplier {
     public void applyAll(MinecraftServer server) {
         Collection<ChapterDefinition> chapters = registry.getChapters();
         Map<UUID, QuestDefinition> quests = new LinkedHashMap<>();
+        Map<UUID, Boolean> questPatched = new LinkedHashMap<>();
 
         for (ChapterDefinition chapter : chapters) {
             for (QuestPlacementDefinition placement : chapter.getPlacements()) {
-                QuestDefinition quest = placement.getQuest();
+                QuestDefinition originalQuest = placement.getQuest();
                 // Apply any runtime patches registered by callers; patches do not
                 // modify the original registered data and are only effective in this apply run.
-                quest = registry.applyPatchesTo(quest);
+                QuestDefinition quest = registry.applyPatchesTo(originalQuest);
+                boolean patched = quest != originalQuest;
                 quests.put(quest.getUuid(), quest);
+                questPatched.put(quest.getUuid(), patched);
             }
         }
 
-        for (QuestDefinition quest : quests.values()) {
-            questApplier.apply(quest);
+        for (Map.Entry<UUID, QuestDefinition> entry : quests.entrySet()) {
+            questApplier.apply(entry.getValue(), questPatched.getOrDefault(entry.getKey(), false));
         }
 
         for (ChapterDefinition chapter : chapters) {
