@@ -4,10 +4,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.UnaryOperator;
 
@@ -107,6 +109,14 @@ public final class BQDefinitionRegistry {
 
     public synchronized Collection<ChapterDefinition> getChapters() {
         return Collections.unmodifiableCollection(chapters.values());
+    }
+
+    public synchronized Set<UUID> getRegisteredChapterUuids() {
+        return Collections.unmodifiableSet(new LinkedHashSet<>(chapterIdsByUuid.keySet()));
+    }
+
+    public synchronized Set<UUID> getRegisteredQuestUuids() {
+        return Collections.unmodifiableSet(new LinkedHashSet<>(questsByUuid.keySet()));
     }
 
     private void rebuildQuestIndex() {

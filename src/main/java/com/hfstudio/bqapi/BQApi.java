@@ -2,6 +2,7 @@ package com.hfstudio.bqapi;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.UnaryOperator;
 
@@ -115,6 +116,14 @@ public final class BQApi {
     /** Returns {@code true} if a quest with the given string ID has been registered. */
     public static boolean hasQuest(String questId) {
         return REGISTRY.hasQuest(questId);
+    }
+
+    public static Set<UUID> getRegisteredChapterUuids() {
+        return REGISTRY.getRegisteredChapterUuids();
+    }
+
+    public static Set<UUID> getRegisteredQuestUuids() {
+        return REGISTRY.getRegisteredQuestUuids();
     }
 
     // ---- Runtime patches ----

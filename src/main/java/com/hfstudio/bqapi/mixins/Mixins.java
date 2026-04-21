@@ -9,7 +9,8 @@ import cpw.mods.fml.common.ModAPIManager;
 
 public enum Mixins {
 
-    BETTER_QUESTING_RUNTIME("betterquesting", "BetterQuesting.MixinQuestCommandDefaults");
+    BETTER_QUESTING_RUNTIME("betterquesting", "BetterQuesting.MixinQuestCommandDefaults"),
+    BETTER_QUESTING_SAVE_FILTER("betterquesting", "BetterQuesting.MixinSaveLoadHandler");
 
     private final String requiredModId;
     private final String mixinClass;
