@@ -1,5 +1,6 @@
 package com.hfstudio.bqapi;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -15,6 +16,7 @@ import com.hfstudio.bqapi.api.definition.QuestDefinition;
 import com.hfstudio.bqapi.api.importer.ImportedQuestFolder;
 import com.hfstudio.bqapi.api.importer.ImportedQuestFolders;
 import com.hfstudio.bqapi.runtime.BQDefinitionRegistry;
+import com.hfstudio.bqapi.runtime.BQRegistrationInfo;
 import com.hfstudio.bqapi.runtime.BQReloaderRegistry;
 import com.hfstudio.bqapi.runtime.BQRuntimeApplier;
 import com.hfstudio.bqapi.runtime.BQStableIdFactory;
@@ -124,6 +126,62 @@ public final class BQApi {
 
     public static Set<UUID> getRegisteredQuestUuids() {
         return REGISTRY.getRegisteredQuestUuids();
+    }
+
+    /** Returns an unmodifiable view of all registered {@link ChapterDefinition}s. */
+    public static Collection<ChapterDefinition> getRegisteredChapters() {
+        return REGISTRY.getChapters();
+    }
+
+    // ---- Debug: registration metadata ----
+
+    /**
+     * Returns the {@link BQRegistrationInfo} captured when the chapter with the given string ID
+     * was most recently registered via {@link #register}, or {@link Optional#empty()} if the
+     * chapter is not registered.
+     */
+    public static Optional<BQRegistrationInfo> getChapterRegistrationInfo(String chapterId) {
+        return REGISTRY.getChapterRegistrationInfo(chapterId);
+    }
+
+    /**
+     * Returns the {@link BQRegistrationInfo} for the chapter identified by {@code chapterUuid},
+     * or {@link Optional#empty()} if the chapter is not registered.
+     */
+    public static Optional<BQRegistrationInfo> getChapterRegistrationInfo(UUID chapterUuid) {
+        return REGISTRY.getChapterRegistrationInfo(chapterUuid);
+    }
+
+    /**
+     * Returns the {@link BQRegistrationInfo} of the chapter that contains the quest with the
+     * given UUID, or {@link Optional#empty()} if the quest is not registered.
+     */
+    public static Optional<BQRegistrationInfo> getQuestRegistrationInfo(UUID questUuid) {
+        return REGISTRY.getQuestChapterId(questUuid)
+            .flatMap(REGISTRY::getChapterRegistrationInfo);
+    }
+
+    /**
+     * Returns the {@link BQRegistrationInfo} of the chapter that contains the quest with the
+     * given string ID (UUID derived via {@link BQStableIdFactory#quest(String)}), or
+     * {@link Optional#empty()} if the quest is not registered.
+     */
+    public static Optional<BQRegistrationInfo> getQuestRegistrationInfo(String questId) {
+        return getQuestRegistrationInfo(BQStableIdFactory.quest(questId));
+    }
+
+    /**
+     * Returns all {@link BQRegistrationInfo} snapshots captured each time
+     * {@link #patchQuest(UUID, java.util.function.UnaryOperator)} was called for the given quest UUID,
+     * in registration order. Returns an empty list if no patches have been registered.
+     */
+    public static List<BQRegistrationInfo> getQuestPatchRegistrationInfos(UUID questUuid) {
+        return REGISTRY.getPatchRegistrationInfos(questUuid);
+    }
+
+    /** Returns the number of quests that have at least one runtime patch registered. */
+    public static int getPatchedQuestCount() {
+        return REGISTRY.getPatchedQuestCount();
     }
 
     // ---- Runtime patches ----

@@ -26,14 +26,24 @@ public final class BQDefinitionRegistry {
     private final Map<UUID, QuestDefinition> questsByUuid = new LinkedHashMap<>();
     private final Map<String, QuestDefinition> questsById = new LinkedHashMap<>();
 
+    // Quest → containing chapter: rebuilt together with the quest index.
+    private final Map<UUID, String> questChapterIdByUuid = new LinkedHashMap<>();
+
     // Runtime patch lists, applied in registration order during each reinject cycle.
     private final Map<UUID, List<UnaryOperator<QuestDefinition>>> questPatches = new LinkedHashMap<>();
+
+    // Debug: registration metadata captured at the time each chapter was registered.
+    private final Map<String, BQRegistrationInfo> chapterRegInfo = new LinkedHashMap<>();
+
+    // Debug: registration metadata captured each time a quest patch was added.
+    private final Map<UUID, List<BQRegistrationInfo>> questPatchRegInfo = new LinkedHashMap<>();
 
     public synchronized void register(ChapterDefinition chapter) {
         ChapterDefinition value = Objects.requireNonNull(chapter, "chapter");
         String existingId = chapterIdsByUuid.get(value.getUuid());
         if (existingId != null && !existingId.equals(value.getId())) {
             chapters.remove(existingId);
+            chapterRegInfo.remove(existingId);
         }
         ChapterDefinition previous = chapters.put(value.getId(), value);
         if (previous != null && !previous.getUuid()
@@ -41,6 +51,7 @@ public final class BQDefinitionRegistry {
             chapterIdsByUuid.remove(previous.getUuid());
         }
         chapterIdsByUuid.put(value.getUuid(), value.getId());
+        chapterRegInfo.put(value.getId(), BQRegistrationInfo.capture());
         rebuildQuestIndex();
     }
 
@@ -55,6 +66,8 @@ public final class BQDefinitionRegistry {
         Objects.requireNonNull(patch, "patch");
         questPatches.computeIfAbsent(questUuid, k -> new ArrayList<>())
             .add(patch);
+        questPatchRegInfo.computeIfAbsent(questUuid, k -> new ArrayList<>())
+            .add(BQRegistrationInfo.capture());
     }
 
     /**
@@ -119,14 +132,49 @@ public final class BQDefinitionRegistry {
         return Collections.unmodifiableSet(new LinkedHashSet<>(questsByUuid.keySet()));
     }
 
+    /** Returns the registration info captured when the chapter with the given ID was registered. */
+    public synchronized Optional<BQRegistrationInfo> getChapterRegistrationInfo(String chapterId) {
+        return Optional.ofNullable(chapterRegInfo.get(chapterId));
+    }
+
+    /** Returns the registration info for the chapter identified by {@code uuid}. */
+    public synchronized Optional<BQRegistrationInfo> getChapterRegistrationInfo(UUID chapterUuid) {
+        String id = chapterIdsByUuid.get(chapterUuid);
+        return id == null ? Optional.empty() : getChapterRegistrationInfo(id);
+    }
+
+    /**
+     * Returns the ID of the chapter that contains the quest with the given UUID,
+     * or {@link Optional#empty()} if the quest is not registered.
+     */
+    public synchronized Optional<String> getQuestChapterId(UUID questUuid) {
+        return Optional.ofNullable(questChapterIdByUuid.get(questUuid));
+    }
+
+    /**
+     * Returns all patch registration infos for the quest with the given UUID,
+     * in registration order. Returns an empty list if no patches have been registered.
+     */
+    public synchronized List<BQRegistrationInfo> getPatchRegistrationInfos(UUID questUuid) {
+        List<BQRegistrationInfo> list = questPatchRegInfo.get(questUuid);
+        return list == null ? Collections.emptyList() : Collections.unmodifiableList(list);
+    }
+
+    /** Returns the number of quests that have at least one runtime patch registered. */
+    public synchronized int getPatchedQuestCount() {
+        return questPatches.size();
+    }
+
     private void rebuildQuestIndex() {
         questsByUuid.clear();
         questsById.clear();
+        questChapterIdByUuid.clear();
         for (ChapterDefinition chapter : chapters.values()) {
             for (QuestPlacementDefinition placement : chapter.getPlacements()) {
                 QuestDefinition q = placement.getQuest();
                 questsByUuid.put(q.getUuid(), q);
                 questsById.put(q.getId(), q);
+                questChapterIdByUuid.put(q.getUuid(), chapter.getId());
             }
         }
     }
