@@ -5,14 +5,18 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 import net.minecraft.nbt.NBTTagCompound;
@@ -20,7 +24,6 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.ResourceLocation;
 
 import com.google.gson.JsonParser;
-import com.hfstudio.bqapi.api.builder.Chapters;
 import com.hfstudio.bqapi.api.builder.Quests;
 import com.hfstudio.bqapi.api.definition.ChapterDefinition;
 import com.hfstudio.bqapi.api.definition.QuestDefinition;
@@ -39,10 +42,11 @@ public final class BQImportedQuestLoader {
         Objects.requireNonNull(folder, "folder");
         try {
             ClasspathQuestResources resources = new ClasspathQuestResources(folder);
+            Map<UUID, ImportedQuestFileRef> questFiles = indexQuestFiles(resources);
             Map<UUID, Integer> orderIndex = resources.readQuestLineOrder();
             List<ImportedLineData> lines = new ArrayList<>();
             for (String lineDirectory : resources.listDirectories("QuestLines")) {
-                lines.add(readLine(resources, folder, lineDirectory));
+                lines.add(readLine(resources, folder, lineDirectory, questFiles));
             }
 
             lines.sort(Comparator.comparingInt(line -> orderIndex.getOrDefault(line.uuid, Integer.MAX_VALUE)));
@@ -69,7 +73,8 @@ public final class BQImportedQuestLoader {
         Objects.requireNonNull(lineDirectory, "lineDirectory");
         try {
             ClasspathQuestResources resources = new ClasspathQuestResources(folder);
-            ImportedLineData line = readLine(resources, folder, lineDirectory);
+            Map<UUID, ImportedQuestFileRef> questFiles = indexQuestFiles(resources);
+            ImportedLineData line = readLine(resources, folder, lineDirectory, questFiles);
             UUID previous = resolvePreviousLineUuid(resources.readQuestLineOrder(), resources, folder, lineDirectory);
             UUID chapterUuid = explicitUuid != null ? explicitUuid
                 : uuidFromResource ? line.uuid : com.hfstudio.bqapi.runtime.BQStableIdFactory.chapter(chapterId);
@@ -95,23 +100,18 @@ public final class BQImportedQuestLoader {
 
     private ChapterDefinition toChapterDefinition(String chapterId, ImportedLineData line, UUID chapterUuid,
         String orderAfterEncoded, NBTTagCompound iconNbt) {
-        com.hfstudio.bqapi.api.builder.ChapterBuilder builder = Chapters.chapter(chapterId)
-            .uuid(chapterUuid)
-            .templateNbt(line.templateNbt);
-        if (orderAfterEncoded != null) {
-            builder.orderAfterEncoded(orderAfterEncoded);
-        }
-        if (iconNbt != null) {
-            builder.iconNbt(iconNbt);
-        }
-        for (QuestPlacementDefinition placement : line.placements) {
-            builder.quest(placement);
-        }
-        return builder.build();
+        return new ChapterDefinition(
+            chapterId,
+            chapterUuid,
+            orderAfterEncoded,
+            iconNbt,
+            line.templateNbt,
+            line.placements,
+            line.extraQuests);
     }
 
     private ImportedLineData readLine(ClasspathQuestResources resources, ImportedQuestFolder folder,
-        String lineDirectory) throws IOException {
+        String lineDirectory, Map<UUID, ImportedQuestFileRef> questFiles) throws IOException {
         NBTTagCompound lineNbt = resources.readNbt("QuestLines/" + lineDirectory + "/QuestLine.json");
 
         UUID lineUuid = NBTConverter.UuidValueType.QUEST_LINE.readId((NBTTagCompound) lineNbt.copy());
@@ -120,8 +120,10 @@ public final class BQImportedQuestLoader {
             QuestDefinition quest = readQuest(resources, folder, lineDirectory, questFile);
             questsByUuid.put(quest.getUuid(), quest);
         }
+        resolveReferencedQuests(resources, folder, questFiles, questsByUuid);
 
         List<QuestPlacementDefinition> placements = new ArrayList<>();
+        Set<UUID> placedQuestIds = new HashSet<>();
         NBTTagList questPlacements = lineNbt.getTagList("quests", 10);
         if (questPlacements.tagCount() > 0) {
             // Format A: placements embedded in QuestLine.json as quests:9 array
@@ -137,6 +139,7 @@ public final class BQImportedQuestLoader {
                     : placementNbt.getInteger("sizeX");
                 int sizeY = placementNbt.hasKey("size", 99) ? placementNbt.getInteger("size")
                     : placementNbt.getInteger("sizeY");
+                placedQuestIds.add(questUuid);
                 placements.add(quest.at(placementNbt.getInteger("x"), placementNbt.getInteger("y"), sizeX, sizeY));
             }
         } else {
@@ -158,7 +161,15 @@ public final class BQImportedQuestLoader {
                     : placementNbt.getInteger("sizeX");
                 int sizeY = placementNbt.hasKey("size", 99) ? placementNbt.getInteger("size")
                     : placementNbt.getInteger("sizeY");
+                placedQuestIds.add(questUuid);
                 placements.add(quest.at(placementNbt.getInteger("x"), placementNbt.getInteger("y"), sizeX, sizeY));
+            }
+        }
+
+        List<QuestDefinition> extraQuests = new ArrayList<>();
+        for (Map.Entry<UUID, QuestDefinition> questEntry : questsByUuid.entrySet()) {
+            if (!placedQuestIds.contains(questEntry.getKey())) {
+                extraQuests.add(questEntry.getValue());
             }
         }
 
@@ -167,7 +178,8 @@ public final class BQImportedQuestLoader {
             lineUuid,
             lineNbt,
             readItemProperty(lineNbt.getCompoundTag("properties"), "icon"),
-            Collections.unmodifiableList(placements));
+            Collections.unmodifiableList(placements),
+            Collections.unmodifiableList(extraQuests));
     }
 
     private QuestDefinition readQuest(ClasspathQuestResources resources, ImportedQuestFolder folder,
@@ -245,6 +257,43 @@ public final class BQImportedQuestLoader {
             .copy();
     }
 
+    private Map<UUID, ImportedQuestFileRef> indexQuestFiles(ClasspathQuestResources resources) throws IOException {
+        Map<UUID, ImportedQuestFileRef> questFiles = new LinkedHashMap<>();
+        for (String questDirectory : resources.listDirectories("Quests")) {
+            for (String questFile : resources.listFiles("Quests/" + questDirectory, ".json")) {
+                NBTTagCompound questNbt = resources.readNbt("Quests/" + questDirectory + "/" + questFile);
+                UUID questUuid = NBTConverter.UuidValueType.QUEST.readId((NBTTagCompound) questNbt.copy());
+                questFiles.putIfAbsent(questUuid, new ImportedQuestFileRef(questDirectory, questFile));
+            }
+        }
+        return questFiles;
+    }
+
+    private void resolveReferencedQuests(ClasspathQuestResources resources, ImportedQuestFolder folder,
+        Map<UUID, ImportedQuestFileRef> questFiles, Map<UUID, QuestDefinition> questsByUuid) throws IOException {
+        Deque<UUID> pending = new ArrayDeque<>();
+        Set<UUID> visited = new HashSet<>();
+        for (QuestDefinition quest : questsByUuid.values()) {
+            pending.addAll(quest.getPrerequisites());
+        }
+
+        while (!pending.isEmpty()) {
+            UUID prerequisiteUuid = pending.removeFirst();
+            if (!visited.add(prerequisiteUuid) || questsByUuid.containsKey(prerequisiteUuid)) {
+                continue;
+            }
+
+            ImportedQuestFileRef questRef = questFiles.get(prerequisiteUuid);
+            if (questRef == null) {
+                continue;
+            }
+
+            QuestDefinition prerequisite = readQuest(resources, folder, questRef.lineDirectory, questRef.questFile);
+            questsByUuid.put(prerequisite.getUuid(), prerequisite);
+            pending.addAll(prerequisite.getPrerequisites());
+        }
+    }
+
     private UUID resolvePreviousLineUuid(Map<UUID, Integer> orderIndex, ClasspathQuestResources resources,
         ImportedQuestFolder folder, String lineDirectory) throws IOException {
         List<ImportedLineRef> refs = new ArrayList<>();
@@ -295,14 +344,16 @@ public final class BQImportedQuestLoader {
         private final NBTTagCompound templateNbt;
         private final NBTTagCompound iconNbt;
         private final List<QuestPlacementDefinition> placements;
+        private final List<QuestDefinition> extraQuests;
 
         private ImportedLineData(String lineDirectory, UUID uuid, NBTTagCompound templateNbt, NBTTagCompound iconNbt,
-            List<QuestPlacementDefinition> placements) {
+            List<QuestPlacementDefinition> placements, List<QuestDefinition> extraQuests) {
             this.lineDirectory = lineDirectory;
             this.uuid = uuid;
             this.templateNbt = (NBTTagCompound) templateNbt.copy();
             this.iconNbt = iconNbt == null ? null : (NBTTagCompound) iconNbt.copy();
             this.placements = placements;
+            this.extraQuests = extraQuests;
         }
     }
 
@@ -314,6 +365,17 @@ public final class BQImportedQuestLoader {
         private ImportedLineRef(String lineDirectory, UUID uuid) {
             this.lineDirectory = lineDirectory;
             this.uuid = uuid;
+        }
+    }
+
+    private static final class ImportedQuestFileRef {
+
+        private final String lineDirectory;
+        private final String questFile;
+
+        private ImportedQuestFileRef(String lineDirectory, String questFile) {
+            this.lineDirectory = lineDirectory;
+            this.questFile = questFile;
         }
     }
 

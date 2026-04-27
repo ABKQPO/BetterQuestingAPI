@@ -2,7 +2,9 @@ package com.hfstudio.bqapi.api.definition;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -19,13 +21,20 @@ public final class ChapterDefinition {
     private final NBTTagCompound iconNbt;
     private final NBTTagCompound templateNbt;
     private final List<QuestPlacementDefinition> placements;
+    private final List<QuestDefinition> extraQuests;
+    private final List<QuestDefinition> allQuests;
 
     public ChapterDefinition(String id, String orderAfterEncoded, List<QuestPlacementDefinition> placements) {
-        this(id, BQStableIdFactory.chapter(id), orderAfterEncoded, null, null, placements);
+        this(id, BQStableIdFactory.chapter(id), orderAfterEncoded, null, null, placements, Collections.emptyList());
     }
 
     public ChapterDefinition(String id, UUID uuid, String orderAfterEncoded, NBTTagCompound iconNbt,
         NBTTagCompound templateNbt, List<QuestPlacementDefinition> placements) {
+        this(id, uuid, orderAfterEncoded, iconNbt, templateNbt, placements, Collections.emptyList());
+    }
+
+    public ChapterDefinition(String id, UUID uuid, String orderAfterEncoded, NBTTagCompound iconNbt,
+        NBTTagCompound templateNbt, List<QuestPlacementDefinition> placements, List<QuestDefinition> extraQuests) {
         this.id = Objects.requireNonNull(id, "id");
         this.uuid = Objects.requireNonNull(uuid, "uuid");
         this.orderAfterEncoded = orderAfterEncoded;
@@ -33,6 +42,19 @@ public final class ChapterDefinition {
         this.templateNbt = templateNbt == null ? null : (NBTTagCompound) templateNbt.copy();
         this.placements = Collections
             .unmodifiableList(new ArrayList<>(Objects.requireNonNull(placements, "placements")));
+        this.extraQuests = Collections
+            .unmodifiableList(new ArrayList<>(Objects.requireNonNull(extraQuests, "extraQuests")));
+        Map<UUID, QuestDefinition> questIndex = new LinkedHashMap<>();
+        for (QuestPlacementDefinition placement : this.placements) {
+            questIndex.put(
+                placement.getQuest()
+                    .getUuid(),
+                placement.getQuest());
+        }
+        for (QuestDefinition quest : this.extraQuests) {
+            questIndex.putIfAbsent(quest.getUuid(), quest);
+        }
+        this.allQuests = Collections.unmodifiableList(new ArrayList<>(questIndex.values()));
     }
 
     public String getId() {
@@ -57,6 +79,14 @@ public final class ChapterDefinition {
 
     public List<QuestPlacementDefinition> getPlacements() {
         return placements;
+    }
+
+    public List<QuestDefinition> getExtraQuests() {
+        return extraQuests;
+    }
+
+    public List<QuestDefinition> getAllQuests() {
+        return allQuests;
     }
 
     public String getNameLangKey() {

@@ -17,7 +17,6 @@ import net.minecraft.util.EnumChatFormatting;
 import com.hfstudio.bqapi.BQApi;
 import com.hfstudio.bqapi.api.definition.ChapterDefinition;
 import com.hfstudio.bqapi.api.definition.QuestDefinition;
-import com.hfstudio.bqapi.api.definition.QuestPlacementDefinition;
 import com.hfstudio.bqapi.api.definition.TaskDefinition;
 import com.hfstudio.bqapi.runtime.BQRegistrationInfo;
 import com.hfstudio.bqapi.runtime.BQReinjector;
@@ -205,7 +204,7 @@ public final class BQApiCommand extends CommandBase {
                     + G
                     + "  quests="
                     + V
-                    + ch.getPlacements()
+                    + ch.getAllQuests()
                         .size()
                     + G
                     + "  mod="
@@ -411,7 +410,7 @@ public final class BQApiCommand extends CommandBase {
             sender,
             "任务数",
             String.valueOf(
-                chapter.getPlacements()
+                chapter.getAllQuests()
                     .size()));
         if (infoOpt.isPresent()) {
             BQRegistrationInfo info = infoOpt.get();
@@ -439,12 +438,13 @@ public final class BQApiCommand extends CommandBase {
     }
 
     private void doChapterQuests(ICommandSender sender, ChapterDefinition chapter, String[] args) {
-        List<QuestPlacementDefinition> placements = chapter.getPlacements();
-        int page = parsePageArg(args, 3, placements.size());
+        List<QuestDefinition> quests = chapter.getAllQuests();
+        List<QuestDefinition> placements = quests;
+        int page = parsePageArg(args, 3, quests.size());
         int from = (page - 1) * PAGE_SIZE;
-        int to = Math.min(from + PAGE_SIZE, placements.size());
-        int totalPages = (placements.size() + PAGE_SIZE - 1) / PAGE_SIZE;
-        if (placements.isEmpty()) {
+        int to = Math.min(from + PAGE_SIZE, quests.size());
+        int totalPages = (quests.size() + PAGE_SIZE - 1) / PAGE_SIZE;
+        if (quests.isEmpty()) {
             msg(sender, W, "章节 " + chapter.getId() + " 中没有任务。");
             return;
         }
@@ -454,8 +454,7 @@ public final class BQApiCommand extends CommandBase {
             H,
             "=== 章节 " + chapter.getId() + " 的任务 (" + placements.size() + " 个，第 " + page + "/" + totalPages + " 页) ===");
         for (int i = from; i < to; i++) {
-            QuestDefinition q = placements.get(i)
-                .getQuest();
+            QuestDefinition q = quests.get(i);
             boolean hasPatches = !BQApi.getQuestPatchRegistrationInfos(q.getUuid())
                 .isEmpty();
             msg(
@@ -543,8 +542,7 @@ public final class BQApiCommand extends CommandBase {
                 .contains(keyword)) {
                 matchedChapters.add(ch.getId());
             }
-            for (QuestPlacementDefinition p : ch.getPlacements()) {
-                QuestDefinition q = p.getQuest();
+            for (QuestDefinition q : ch.getAllQuests()) {
                 if (q.getId()
                     .toLowerCase(Locale.ROOT)
                     .contains(keyword)) {
@@ -651,9 +649,8 @@ public final class BQApiCommand extends CommandBase {
     private static String resolveQuestChapterId(UUID questUuid) {
         // BQApi does not expose a direct quest→chapter lookup, so iterate all chapters.
         for (ChapterDefinition ch : BQApi.getRegisteredChapters()) {
-            for (QuestPlacementDefinition p : ch.getPlacements()) {
-                if (p.getQuest()
-                    .getUuid()
+            for (QuestDefinition q : ch.getAllQuests()) {
+                if (q.getUuid()
                     .equals(questUuid)) {
                     return ch.getId();
                 }
@@ -711,10 +708,8 @@ public final class BQApiCommand extends CommandBase {
     private static String[] collectQuestIds() {
         List<String> ids = new ArrayList<>();
         for (ChapterDefinition ch : BQApi.getRegisteredChapters()) {
-            for (QuestPlacementDefinition p : ch.getPlacements()) {
-                ids.add(
-                    p.getQuest()
-                        .getId());
+            for (QuestDefinition q : ch.getAllQuests()) {
+                ids.add(q.getId());
             }
         }
         return ids.toArray(new String[0]);

@@ -9,7 +9,6 @@ import net.minecraft.server.MinecraftServer;
 
 import com.hfstudio.bqapi.api.definition.ChapterDefinition;
 import com.hfstudio.bqapi.api.definition.QuestDefinition;
-import com.hfstudio.bqapi.api.definition.QuestPlacementDefinition;
 import com.hfstudio.bqapi.runtime.apply.ChapterApplier;
 import com.hfstudio.bqapi.runtime.apply.QuestApplier;
 import com.hfstudio.bqapi.runtime.apply.TaskApplier;
@@ -30,8 +29,7 @@ public final class BQRuntimeApplier {
         Map<UUID, Boolean> questPatched = new LinkedHashMap<>();
 
         for (ChapterDefinition chapter : chapters) {
-            for (QuestPlacementDefinition placement : chapter.getPlacements()) {
-                QuestDefinition originalQuest = placement.getQuest();
+            for (QuestDefinition originalQuest : chapter.getAllQuests()) {
                 // Apply any runtime patches registered by callers; patches do not
                 // modify the original registered data and are only effective in this apply run.
                 QuestDefinition quest = registry.applyPatchesTo(originalQuest);

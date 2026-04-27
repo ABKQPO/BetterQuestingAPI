@@ -15,7 +15,6 @@ import java.util.function.UnaryOperator;
 
 import com.hfstudio.bqapi.api.definition.ChapterDefinition;
 import com.hfstudio.bqapi.api.definition.QuestDefinition;
-import com.hfstudio.bqapi.api.definition.QuestPlacementDefinition;
 
 public final class BQDefinitionRegistry {
 
@@ -170,8 +169,7 @@ public final class BQDefinitionRegistry {
         questsById.clear();
         questChapterIdByUuid.clear();
         for (ChapterDefinition chapter : chapters.values()) {
-            for (QuestPlacementDefinition placement : chapter.getPlacements()) {
-                QuestDefinition q = placement.getQuest();
+            for (QuestDefinition q : chapter.getAllQuests()) {
                 questsByUuid.put(q.getUuid(), q);
                 questsById.put(q.getId(), q);
                 questChapterIdByUuid.put(q.getUuid(), chapter.getId());
